@@ -10,6 +10,8 @@ def generate_timetable(filename):
         "Mahim", "Bandra", "Khar-Rd", "Santacruz", "Vile-Parle", "Andheri",
         "Jogeshwari", "Ram-Mandir", "Goregaon", "Malad", "Kandivali", "Borivali"
     ]
+
+  
     
     # Fast trains only stop at these major stations
     fast_stops = ["Churchgate", "Mumbai-Central", "Dadar", "Bandra", "Andheri", "Borivali"]

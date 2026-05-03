@@ -12,6 +12,8 @@ from simulation.env import RailwayEnv
 
 from api.websocket import manager
 
+
+
 # Global simulation state
 app_state = {
     "play": False,
