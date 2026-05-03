@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+/* ─── Design Tokens ─── */
+@theme {
+  --color-bg-base: #0A0E1A;
+  --color-bg-surface: #0F1629;
+  --color-bg-elevated: #141B2D;
+  --color-border-default: rgba(255, 255, 255, 0.06);
+  --color-border-subtle: rgba(255, 255, 255, 0.03);
+
+  --color-accent-cyan: #00D4FF;
+  --color-accent-green: #00FF88;
+  --color-accent-amber: #FFB800;
+  --color-accent-red: #FF4444;
+
+  --color-text-primary: #E8EDF5;
+  --color-text-secondary: #6B7A99;
+  --color-text-muted: #3D4666;
+
+  --font-family-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ─── Base ─── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: var(--font-family-sans);
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* ─── Glow utilities ─── */
+.glow-cyan {
+  filter: drop-shadow(0 0 4px #00D4FF);
+}
+.glow-green {
+  filter: drop-shadow(0 0 4px #00FF88);
+}
+.glow-amber {
+  filter: drop-shadow(0 0 4px #FFB800);
+}
+.glow-red {
+  filter: drop-shadow(0 0 4px #FF4444);
+}
+
+/* ─── Signal glow (SVG circles) ─── */
+.signal-glow-R {
+  filter: drop-shadow(0 0 6px rgba(255, 68, 68, 0.6));
+}
+.signal-glow-Y {
+  filter: drop-shadow(0 0 6px rgba(255, 184, 0, 0.6));
+}
+.signal-glow-G {
+  filter: drop-shadow(0 0 6px rgba(0, 255, 136, 0.6));
+}
+
+/* ─── Active element shadow ─── */
+.shadow-active {
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.15);
+}
