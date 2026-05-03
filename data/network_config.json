@@ -1,0 +1,52 @@
+
+{
+  "stations": [
+    { "id": "CCG", "name": "Churchgate", "platforms": 4 },
+    { "id": "MEL", "name": "Marine Lines", "platforms": 4 },
+    { "id": "CYR", "name": "Charni Road", "platforms": 4 },
+    { "id": "GTR", "name": "Grant Road", "platforms": 4 },
+    { "id": "BCT", "name": "Mumbai Central", "platforms": 5 },
+    { "id": "MX", "name": "Mahalaxmi", "platforms": 4 },
+    { "id": "PL", "name": "Lower Parel", "platforms": 4 },
+    { "id": "EPR", "name": "Elphinstone Road", "platforms": 4 },
+    { "id": "DDR", "name": "Dadar", "platforms": 5 },
+    { "id": "MRU", "name": "Matunga Road", "platforms": 4 },
+    { "id": "MM", "name": "Mahim", "platforms": 4 },
+    { "id": "BA", "name": "Bandra", "platforms": 5 },
+    { "id": "ADH", "name": "Andheri", "platforms": 6 }
+  ],
+  "edges": [
+    { "source": "CCG", "target": "MEL", "line": "slow", "max_speed": 60, "dist_km": 1.4 },
+    { "source": "CCG", "target": "MEL", "line": "fast", "max_speed": 80, "dist_km": 1.4 },
+    { "source": "MEL", "target": "CYR", "line": "slow", "max_speed": 60, "dist_km": 1.1 },
+    { "source": "MEL", "target": "CYR", "line": "fast", "max_speed": 80, "dist_km": 1.1 },
+    { "source": "CYR", "target": "GTR", "line": "slow", "max_speed": 60, "dist_km": 1.2 },
+    { "source": "CYR", "target": "GTR", "line": "fast", "max_speed": 80, "dist_km": 1.2 },
+    { "source": "GTR", "target": "BCT", "line": "slow", "max_speed": 60, "dist_km": 1.1 },
+    { "source": "GTR", "target": "BCT", "line": "fast", "max_speed": 80, "dist_km": 1.1 },
+    { "source": "BCT", "target": "MX", "line": "slow", "max_speed": 60, "dist_km": 1.4 },
+    { "source": "BCT", "target": "MX", "line": "fast", "max_speed": 80, "dist_km": 1.4 },
+    { "source": "MX", "target": "PL", "line": "slow", "max_speed": 60, "dist_km": 1.5 },
+    { "source": "MX", "target": "PL", "line": "fast", "max_speed": 80, "dist_km": 1.5 },
+    { "source": "PL", "target": "EPR", "line": "slow", "max_speed": 60, "dist_km": 1.2 },
+    { "source": "PL", "target": "EPR", "line": "fast", "max_speed": 80, "dist_km": 1.2 },
+    { "source": "EPR", "target": "DDR", "line": "slow", "max_speed": 60, "dist_km": 1.3 },
+    { "source": "EPR", "target": "DDR", "line": "fast", "max_speed": 80, "dist_km": 1.3 },
+    { "source": "DDR", "target": "MRU", "line": "slow", "max_speed": 60, "dist_km": 1.5 },
+    { "source": "DDR", "target": "MRU", "line": "fast", "max_speed": 80, "dist_km": 1.5 },
+    { "source": "MRU", "target": "MM", "line": "slow", "max_speed": 60, "dist_km": 1.4 },
+    { "source": "MRU", "target": "MM", "line": "fast", "max_speed": 80, "dist_km": 1.4 },
+    { "source": "MM", "target": "BA", "line": "slow", "max_speed": 60, "dist_km": 1.8 },
+    { "source": "MM", "target": "BA", "line": "fast", "max_speed": 80, "dist_km": 1.8 },
+    { "source": "BA", "target": "ADH", "line": "slow", "max_speed": 60, "dist_km": 7.3 },
+    { "source": "BA", "target": "ADH", "line": "fast", "max_speed": 80, "dist_km": 7.3 }
+  ],
+  "crossovers": [
+    { "station": "DDR", "from_line": "slow", "to_line": "fast", "direction": "UP" },
+    { "station": "DDR", "from_line": "fast", "to_line": "slow", "direction": "DN" },
+    { "station": "BA", "from_line": "slow", "to_line": "fast", "direction": "UP" },
+    { "station": "BA", "from_line": "fast", "to_line": "slow", "direction": "DN" },
+    { "station": "ADH", "from_line": "slow", "to_line": "fast", "direction": "UP" },
+    { "station": "ADH", "from_line": "fast", "to_line": "slow", "direction": "DN" }
+  ]
+}
