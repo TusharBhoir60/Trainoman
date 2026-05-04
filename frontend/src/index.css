@@ -78,7 +78,10 @@ html, body, #root {
   filter: drop-shadow(0 0 6px rgba(0, 255, 136, 0.6));
 }
 
-/* ─── Active element shadow ─── */
-.shadow-active {
-  box-shadow: 0 0 20px rgba(0, 212, 255, 0.15);
+/* ─── Train highlight (locate on map) ─── */
+[data-highlighted="true"] circle,
+[data-highlighted="true"] polygon {
+  filter: drop-shadow(0 0 8px #00D4FF);
+  stroke: #00D4FF;
+  stroke-width: 2;
 }

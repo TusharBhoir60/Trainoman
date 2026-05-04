@@ -4,8 +4,12 @@ import { getSignalHex, getSignalLabel } from "../utils/formatters";
 
 const FILTERS = ["ALL", "DELAYED", "EXPRESS"];
 
-function DecisionLog({ signals, trains, onLocateTrain }) {
+function DecisionLog({ signals, trains, onLocateTrain, className = "" }) {
   const [filter, setFilter] = useState("ALL");
+
+  // Stable derived keys so useMemo only recomputes when actual values change
+  const signalKey = signals?.map(s => s.station_id + s.color + s.last_decision).join("|") ?? "";
+  const trainKey = trains?.map(t => t.id + t.delay_mins.toFixed(1)).join("|") ?? "";
 
   // Build decision entries from signals + correlated train data
   const entries = useMemo(() => {
@@ -33,12 +37,12 @@ function DecisionLog({ signals, trains, onLocateTrain }) {
         return true;
       })
       .slice(0, 25);
-  }, [signals, trains, filter]);
+  }, [signalKey, trainKey, filter]);
 
   const borderColor = (c) => c === "G" ? "#00FF88" : c === "Y" ? "#FFB800" : "#FF4444";
 
   return (
-    <div className="flex-1 flex flex-col bg-bg-surface border border-border-default rounded-lg overflow-hidden min-h-0">
+    <div className={`flex flex-col h-full bg-bg-surface border border-border-default rounded-lg overflow-hidden ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border-default shrink-0">
         <div className="flex items-center gap-2">
@@ -75,9 +79,9 @@ function DecisionLog({ signals, trains, onLocateTrain }) {
           </div>
         ) : (
           <AnimatePresence initial={false}>
-            {entries.map((entry, i) => (
+            {entries.map((entry) => (
               <motion.div
-                key={`${entry.station_id}-${i}`}
+                key={entry.station_id}
                 initial={{ opacity: 0, y: -12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 12 }}

@@ -1,7 +1,7 @@
 import csv
 import numpy as np
 from simulation.network import RailwayNetwork
-from simulation.train import Train, compute_delay
+from simulation.train import Train
 from simulation.safety import SafetyValidator
 
 class Simulator:
@@ -10,12 +10,15 @@ class Simulator:
     N_TRAINS = 20
 
     def __init__(self, network_config: str, timetable_path: str):
-        self.network = RailwayNetwork(network_config)
+        self.config_path = network_config
+        self.network = RailwayNetwork(self.config_path)
         self.safety = SafetyValidator(self.network)
         self.timetable_path = timetable_path
         self.trains: list[Train] = []
         self.tick_count = 0
         self.signals = {}
+        self._last_decisions = {}
+        self._cascades_prevented = 0
         self.metrics = {"completed_trips": 0, "total_delay_mins": 0.0}
 
     def _load_trains(self):
@@ -39,12 +42,10 @@ class Simulator:
 
     def reset(self) -> dict:
         self.tick_count = 0
-        self.network = RailwayNetwork(self.network._stations_order)  # reset network occupancy by reloading or we just free all. Let's just create a new instance if we passed config, but here just free all loops.
-        # Quick hack to just free everything:
-        for u, v, k, d in self.network.G.edges(keys=True, data=True):
-            d['occupant'] = None
-            
+        self.network = RailwayNetwork(self.config_path)
         self.signals = {st: 0 for st in self.network._stations_order}
+        self._last_decisions = {}
+        self._cascades_prevented = 0
         self.metrics = {"completed_trips": 0, "total_delay_mins": 0.0}
         self._load_trains()
         return self.get_state()
@@ -63,6 +64,7 @@ class Simulator:
                 # If unsafe, fallback to RED (0)
                 if mask[s_idx, action] == 0:
                     safe_actions[st] = 0
+                    self._cascades_prevented += 1
                 else:
                     safe_actions[st] = action
                     
@@ -93,6 +95,7 @@ class Simulator:
                             train.is_at_platform = False
                             train.segment_pct = 0.0
                             self.network.occupy(*valid_edge, train.id)
+                            self._last_decisions[train.current_station] = f"→ {target_line} · train {train.id}"
             else:
                 # 3. Advance segment_pct
                 # Get edge details
@@ -122,16 +125,35 @@ class Simulator:
                             train.next_station = "" # Terminated
                             self.metrics["completed_trips"] += 1
                             
-                        # compute delay
-                        # (Assume actual dep = current time for simplicity or we use it realistically)
-                        # We'll just generate an actual_dep placeholder
-                        train.delay_mins = compute_delay(train.scheduled_dep, train.scheduled_dep) # replace with actual ticks logic
+                        # compute delay from elapsed simulation time
+                        elapsed_mins = (self.tick_count * self.TICK_SECS) / 60.0
+                        if train.scheduled_dep:
+                            h, m = map(int, train.scheduled_dep.split(":"))
+                            sched_mins = h * 60 + m
+                            train.delay_mins = max(0.0, elapsed_mins - sched_mins)
+                        else:
+                            train.delay_mins = 0.0
                         train.dwell_ticks_remaining = 1 # e.g. 30 seconds
 
         self.tick_count += 1
         return self.get_state()
 
     def get_state(self) -> dict:
+        ACTION_TO_COLOR = {0: "R", 1: "Y", 2: "G", 3: "G", 4: "Y"}
+        signals_list = [
+            {
+                "station_id": st,
+                "color": ACTION_TO_COLOR.get(action, "R"),
+                "last_decision": self._last_decisions.get(st, "")
+            }
+            for st, action in self.signals.items()
+        ]
+        self.metrics["total_delay_mins"] = round(
+            sum(t.delay_mins for t in self.trains), 2)
+        self.metrics["on_time_pct"] = round(
+            100 * sum(1 for t in self.trains if t.delay_mins < 2.0)
+            / max(1, len(self.trains)), 1)
+        self.metrics["cascades_prevented"] = self._cascades_prevented
         return {
             "tick": self.tick_count,
             "trains": [
@@ -145,7 +167,7 @@ class Simulator:
                     "is_at_platform": t.is_at_platform
                 } for t in self.trains
             ],
-            "signals": self.signals,
+            "signals": signals_list,
             "metrics": self.metrics
         }
 
