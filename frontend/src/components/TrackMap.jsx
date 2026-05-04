@@ -70,19 +70,35 @@ function TrainMarker({ train }) {
   const nxtX = nxt ? nxt.x : cur.x;
   const x = cur.x + (nxtX - cur.x) * (train.segment_pct ?? 0);
   const y = train.line_type === "fast" ? FAST_LINE_Y : SLOW_LINE_Y;
-  const isCrit = train.delay_mins > 15, isDel = train.delay_mins > 5;
-  const fill = isCrit ? "#FF4444" : isDel ? "#FFB800" : train.line_type === "fast" ? "#00D4FF" : "#00FF88";
-  const glow = isCrit ? "glow-red" : isDel ? "glow-amber" : train.line_type === "fast" ? "glow-cyan" : "glow-green";
-  const pd = isCrit ? 0.8 : isDel ? 1.5 : 0;
+  const isCrit = train.delay_mins > 15;
+  const isDel = train.delay_mins > 5;
+  const fill = isCrit ? "#FF4444" : isDel ? "#FFB800"
+    : train.line_type === "fast" ? "#00D4FF" : "#00FF88";
   const isExp = train.is_express || train.line_type === "fast";
+  const pd = isCrit ? 0.8 : isDel ? 1.5 : 0;
 
   return (
-    <motion.g data-train-id={train.id} animate={{ x, y }} transition={{ type: "tween", duration: 0.5, ease: "linear" }} style={{ x: 0, y: 0 }}>
-      <motion.g animate={pd > 0 ? { scale: [1, 1.2, 1] } : {}} transition={pd > 0 ? { duration: pd, repeat: Infinity, ease: "easeInOut" } : {}}>
-        {isExp ? <polygon points="-5,-5 5,0 -5,5" fill={fill} className={glow} /> : <circle r={5} fill={fill} className={glow} />}
+    <g
+      data-train-id={train.id}
+      transform={`translate(${x}, ${y})`}
+      style={{ transition: "transform 0.5s linear" }}
+    >
+      <motion.g
+        animate={pd > 0 ? { scale: [1, 1.2, 1] } : { scale: 1 }}
+        transition={pd > 0
+          ? { duration: pd, repeat: Infinity, ease: "easeInOut" }
+          : {}}
+      >
+        {isExp
+          ? <polygon points="-5,-5 5,0 -5,5" fill={fill} />
+          : <circle r={5} fill={fill} />
+        }
       </motion.g>
-      <title>{train.id} · {train.line_type}{train.delay_mins > 0 ? ` · +${train.delay_mins.toFixed(1)}m` : ""}</title>
-    </motion.g>
+      <title>
+        {train.id} · {train.line_type}
+        {train.delay_mins > 0 ? ` · +${train.delay_mins.toFixed(1)}m` : ""}
+      </title>
+    </g>
   );
 }
 

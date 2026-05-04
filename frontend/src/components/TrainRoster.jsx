@@ -25,7 +25,7 @@ const STATUS_STYLES = {
   "HELD":        { bg: "rgba(61,70,102,0.2)",  color: "#6B7A99" },
 };
 
-function TrainRoster({ trains, onSelectTrain }) {
+function TrainRoster({ trains, onSelectTrain, className = "" }) {
   const [sortKey, setSortKey] = useState("delay_mins");
   const [sortDir, setSortDir] = useState("desc");
 
@@ -53,7 +53,7 @@ function TrainRoster({ trains, onSelectTrain }) {
   }, [sorted]);
 
   return (
-    <div className="flex-1 flex flex-col bg-bg-surface border border-border-default rounded-lg overflow-hidden min-h-0">
+    <div className={`flex flex-col h-full bg-bg-surface border border-border-default rounded-lg overflow-hidden ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border-default shrink-0">
         <span className="text-sm font-semibold text-text-primary">Live Train Roster</span>
@@ -67,6 +67,7 @@ function TrainRoster({ trains, onSelectTrain }) {
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-bg-surface z-10">
             <tr>
+              <th className="w-0.5 p-0" />
               {COLS.map((col) => (
                 <th
                   key={col.key}
@@ -84,7 +85,7 @@ function TrainRoster({ trains, onSelectTrain }) {
           <tbody>
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-8 text-text-muted">
+                <td colSpan={6} className="text-center py-8 text-text-muted">
                   Waiting for simulation...
                 </td>
               </tr>
@@ -99,9 +100,14 @@ function TrainRoster({ trains, onSelectTrain }) {
                     key={train.id}
                     onClick={() => onSelectTrain?.(train.id)}
                     className="hover:bg-white/[0.02] transition-colors duration-300 cursor-pointer"
-                    style={isMostDelayed ? { borderLeft: "2px solid #FF4444" } : {}}
                   >
-                    {/* Train ID */}
+                    {/* Delay indicator */}
+                    <td className="w-0.5 p-0">
+                      <div
+                        className="h-full w-0.5"
+                        style={{ backgroundColor: isMostDelayed ? "#FF4444" : "transparent" }}
+                      />
+                    </td>
                     <td className="px-3 py-2.5">
                       <span
                         className="font-mono tabular-nums font-medium"

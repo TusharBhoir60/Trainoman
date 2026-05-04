@@ -1,93 +1,52 @@
 import { useState, useEffect, useRef, useReducer, useCallback } from "react";
 
-const WS_URL = "ws://localhost:8000/ws/state";
 const API_BASE = "http://localhost:8000";
-const MAX_HISTORY = 120;
-const BASELINE = 18.0;
 
-// Ring-buffer reducer — avoids spreading a 120-item array every tick
-function historyReducer(state, action) {
-  switch (action.type) {
-    case "APPEND": {
-      const next = [...state, action.payload];
-      if (next.length > MAX_HISTORY) {
-        return next.slice(next.length - MAX_HISTORY);
-      }
-      return next;
-    }
-    case "RESET":
-      return [];
-    default:
-      return state;
-  }
-}
+const ringReducer = (state, action) => {
+  if (action.type !== "ADD") return state;
+  const next = [...state, { tick: action.tick, delay: action.delay, baseline: 18.0 }];
+  return next.length > 120 ? next.slice(-120) : next;
+};
 
 export default function useSimulation() {
   const [simState, setSimState] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState("connecting"); // "connected" | "connecting" | "disconnected"
-  const [delayHistory, dispatchHistory] = useReducer(historyReducer, []);
+  const [delayHistory, dispatch] = useReducer(ringReducer, []);
 
   const wsRef = useRef(null);
-  const retryRef = useRef(null);
-  const retryDelayRef = useRef(1000);
 
-  // ---------- WebSocket lifecycle ----------
   const connect = useCallback(() => {
-    setConnectionStatus("connecting");
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    const ws = new WebSocket(WS_URL);
-    wsRef.current = ws;
+    const ws = new WebSocket("ws://localhost:8000/ws/state");
 
-    ws.onopen = () => {
-      setIsConnected(true);
-      setConnectionStatus("connected");
-      retryDelayRef.current = 1000; // reset backoff
+    ws.onopen = () => setIsConnected(true);
+
+    ws.onclose = () => {
+      setIsConnected(false);
+      setTimeout(connect, 3000); // reconnect after 3s
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = (e) => {
       try {
-        const data = JSON.parse(event.data);
+        const data = JSON.parse(e.data);
         setSimState(data);
-
-        dispatchHistory({
-          type: "APPEND",
-          payload: {
-            tick: data.tick,
-            delay: data.metrics?.total_delay_mins ?? 0,
-            baseline: BASELINE,
-          },
+        dispatch({
+          type: "ADD",
+          delay: data.metrics?.total_delay_mins ?? 0,
+          tick: data.tick,
         });
       } catch (err) {
         console.error("[useSimulation] Failed to parse WS message:", err);
       }
     };
 
-    ws.onclose = () => {
-      setIsConnected(false);
-      setConnectionStatus("disconnected");
-      wsRef.current = null;
-
-      // Exponential backoff: 1s → 2s → 4s → 8s max
-      const delay = retryDelayRef.current;
-      retryRef.current = setTimeout(() => {
-        retryDelayRef.current = Math.min(delay * 2, 8000);
-        connect();
-      }, delay);
-    };
-
-    ws.onerror = () => {
-      // onclose will fire after onerror, so reconnection is handled there
-      ws.close();
-    };
+    wsRef.current = ws;
   }, []);
 
   useEffect(() => {
     connect();
-    return () => {
-      if (wsRef.current) wsRef.current.close();
-      if (retryRef.current) clearTimeout(retryRef.current);
-    };
+    return () => wsRef.current?.close();
   }, [connect]);
 
   // ---------- REST helpers ----------
@@ -114,6 +73,8 @@ export default function useSimulation() {
       console.error("[useSimulation] injectScenario failed:", e);
     }
   }, []);
+
+  const connectionStatus = isConnected ? "connected" : "disconnected";
 
   return {
     simState,
