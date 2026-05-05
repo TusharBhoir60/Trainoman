@@ -1,7 +1,7 @@
 import csv
 import numpy as np
 from simulation.network import RailwayNetwork
-from simulation.train import Train
+from simulation.train import Train, compute_delay
 from simulation.safety import SafetyValidator
 
 class Simulator:
@@ -9,8 +9,8 @@ class Simulator:
     MAX_TICKS = 2880
     N_TRAINS = 20
 
-    def __init__(self, network_config: str, timetable_path: str):
-        self.config_path = network_config
+    def __init__(self, config_path: str, timetable_path: str):
+        self.config_path = config_path
         self.network = RailwayNetwork(self.config_path)
         self.safety = SafetyValidator(self.network)
         self.timetable_path = timetable_path
@@ -56,7 +56,7 @@ class Simulator:
         0=RED, 1=YELLOW, 2=GREEN_SLOW, 3=GREEN_FAST, 4=HOLD
         """
         # 1. Apply SafetyValidator
-        mask = self.safety.get_action_mask(self.trains, self.network)
+        mask = self.safety.get_action_mask(self.trains, self.network, self.tick_count)
         safe_actions = {}
         for st, action in actions.items():
             s_idx = self.network.station_index(st)
@@ -128,9 +128,10 @@ class Simulator:
                         # compute delay from elapsed simulation time
                         elapsed_mins = (self.tick_count * self.TICK_SECS) / 60.0
                         if train.scheduled_dep:
-                            h, m = map(int, train.scheduled_dep.split(":"))
-                            sched_mins = h * 60 + m
-                            train.delay_mins = max(0.0, elapsed_mins - sched_mins)
+                            hours = int(elapsed_mins // 60) % 24
+                            mins = int(elapsed_mins % 60)
+                            actual_time_str = f"{hours:02d}:{mins:02d}"
+                            train.delay_mins = compute_delay(train.scheduled_dep, actual_time_str)
                         else:
                             train.delay_mins = 0.0
                         train.dwell_ticks_remaining = 1 # e.g. 30 seconds

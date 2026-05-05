@@ -9,7 +9,42 @@ class SafetyValidator:
     def __init__(self, network: RailwayNetwork):
         self.network = network
 
-    def get_action_mask(self, trains: list[Train], network: RailwayNetwork) -> np.ndarray:
+    def _would_collide(self, train: Train, action: int, network: RailwayNetwork, current_tick: int, all_trains: list[Train]) -> bool:
+        """
+        Enforce safety rules before allowing a train to proceed on an edge.
+        Returns True if the action is UNSAFE (would collide or violate headway/platform limits).
+        """
+        if action not in (2, 3):
+            # HOLD (4), RED (0), YELLOW (1) don't advance the train block so it's not a collision check here
+            return False
+            
+        u = train.current_station
+        v = train.next_station
+        track_key = 0 if action == 2 else 1 # 2 is SLOW (0), 3 is FAST (1)
+        
+        # 1. Block Collision: Check if target edge is clear
+        if not network.is_clear(u, v, track_key):
+            return True
+            
+        # 2. Headway Constraint: Ensure train ahead is >= MIN_HEADWAY_TICKS away
+        for other in all_trains:
+            if other != train and not other.is_at_platform and other.current_station == u and other.next_station == v:
+                # Naive time estimate: other.segment_pct could be translated to ticks. 
+                # Better: assuming an edge takes >6 ticks to traverse, check if other just entered it
+                # For this rule, we just assume if another train is on the same edge, we need to enforce spacing
+                # By checking segment_pct, approx:
+                if other.segment_pct < 0.1:  # if other train just entered recently
+                    return True
+                    
+        # 3. Platform Mutex: Ensure target station platform no other train is occupying it
+        for other in all_trains:
+            if other != train and other.is_at_platform and other.current_station == v:
+                # simple logic: if another train is currently at the target station platform, we can't send our train there
+                return True
+                
+        return False
+
+    def get_action_mask(self, trains: list[Train], network: RailwayNetwork, current_tick: int) -> np.ndarray:
         """
         Returns a valid action mask for 12 stations.
         Actions per station:
@@ -24,28 +59,12 @@ class SafetyValidator:
         
         for train in trains:
             u = train.current_station
-            v = train.next_station
             s_idx = network.station_index(u)
-            
-            # If standard idx is outside 0-11, drop it
             if s_idx < 0 or s_idx >= 12:
                 continue
-                
-            # Rule 1: Route train to occupied block (is_clear check)
-            if not network.is_clear(u, v, 0):
-                mask[s_idx, 2] = 0  # GREEN_SLOW disallowed
-            if not network.is_clear(u, v, 1):
-                mask[s_idx, 3] = 0  # GREEN_FAST disallowed
-                
-            # Rule 3: Double-book a platform (pseudo-check: if holding causes double booking)
-            for other in trains:
-                if other != train and other.current_station == u and other.platform_no == train.platform_no:
-                    # Platform conflict, e.g. holding might be dangerous if another train is arriving
-                    pass
 
-            # Rule 4: Route to fast line when no crossover exists at that station
+            # Route to fast/slow line according to crossover rules
             crossovers = network.get_crossovers(u)
-            
             if train.line_type == "slow":
                 has_crossover = any(c.get("from_line") == "slow" and c.get("to_line") == "fast" for c in crossovers)
                 if not has_crossover:
@@ -54,13 +73,12 @@ class SafetyValidator:
                 has_crossover = any(c.get("from_line") == "fast" and c.get("to_line") == "slow" for c in crossovers)
                 if not has_crossover:
                     mask[s_idx, 2] = 0
-                    
-            # Rule 2: MIN_HEADWAY_TICKS violation on same segment
-            # A more detailed logic would compare segment_pct and dwell ticks
-            for other in trains:
-                if other != train and other.current_station == u and other.next_station == v:
-                    if other.segment_pct < 0.1:  # simplified headway check
-                        mask[s_idx, 2] = 0
-                        mask[s_idx, 3] = 0
+
+            # Use _would_collide for SLOW (2) and FAST (3)
+            # if unsafe, mask it out
+            if self._would_collide(train, 2, network, current_tick, trains):
+                mask[s_idx, 2] = 0
+            if self._would_collide(train, 3, network, current_tick, trains):
+                mask[s_idx, 3] = 0
                         
         return mask

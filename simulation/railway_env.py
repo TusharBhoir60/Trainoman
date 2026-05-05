@@ -2,6 +2,7 @@ import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 from simulation.simulator import Simulator
+from simulation.safety import SafetyValidator  # Optional if just keeping the one inside simulator
 
 class RailwayEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
@@ -13,11 +14,12 @@ class RailwayEnv(gym.Env):
         self.N_ACTIONS = 5
         
         self.simulator = Simulator(network_config, timetable_path)
+        self.safety = self.simulator.safety # Access safety validator initialized in simulator
         
         # observation_space: 20 trains * 5 features + 2 global = 102 features
         self.observation_space = spaces.Box(
             low=0.0, high=1.0, 
-            shape=(self.N_TRAINS * 5 + 2,), 
+            shape=(102,), 
             dtype=np.float32
         )
         
@@ -27,7 +29,7 @@ class RailwayEnv(gym.Env):
     def reset(self, seed=None, options=None) -> tuple[np.ndarray, dict]:
         super().reset(seed=seed)
         self.simulator.reset()
-        return self._get_obs(), self._get_info()
+        return self._get_obs(), {}
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         # Formulate action dict for the simulator
@@ -44,15 +46,16 @@ class RailwayEnv(gym.Env):
         # Calculate reward
         active_trains = self.simulator.trains
         total_delay = sum(t.delay_mins for t in active_trains)
-        on_time_count = sum(1 for t in active_trains if t.delay_mins < 2.0)
         
-        # reward = -sum(delay) + 0.5 * count(delay < 2.0)
-        reward = -total_delay + 0.5 * on_time_count
+        # reward = -sum(delay)
+        reward = -total_delay
 
-        terminated = self.simulator.tick_count >= self.simulator.MAX_TICKS
-        truncated = False
+        # Terminated if all trains reached their destinations
+        # Assuming next_station == "" signifies termination in simulator.py based on previous logic
+        terminated = len(active_trains) > 0 and all(t.next_station == "" for t in active_trains)
+        truncated = self.simulator.tick_count >= self.simulator.MAX_TICKS
 
-        return self._get_obs(), float(reward), terminated, truncated, self._get_info()
+        return self._get_obs(), float(reward), terminated, truncated, {}
 
     def _get_obs(self) -> np.ndarray:
         obs_list = []
@@ -75,10 +78,9 @@ class RailwayEnv(gym.Env):
         
         return np.concatenate([obs_flat, global_feats])
 
-    def _get_info(self) -> dict:
-        # info must include "action_masks" flattened
-        mask = self.simulator.safety.get_action_mask(self.simulator.trains, self.simulator.network)
-        return {"action_masks": mask.flatten()}
+    def action_masks(self) -> np.ndarray:
+        mask = self.safety.get_action_mask(self.simulator.trains, self.simulator.network, self.simulator.tick_count)
+        return mask.flatten()
 
     def render(self):
         active_trains = self.simulator.trains
