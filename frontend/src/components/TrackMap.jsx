@@ -1,5 +1,5 @@
-import { memo, useMemo, useCallback, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { memo, useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { motion, useMotionValue, useSpring } from "framer-motion";
 import {
   STATIONS, STATION_MAP, CROSSOVER_STATIONS,
   FAST_LINE_Y, SLOW_LINE_Y, SIGNAL_Y, SVG_VIEWBOX,
@@ -41,6 +41,39 @@ const StaticTrackLayer = memo(function StaticTrackLayer() {
   );
 });
 
+/** Pulsing ring at station — uses SVG-native r attribute animation via ref */
+function StationPulseRing({ cx, cy }) {
+  const ringRef = useRef(null);
+  const animRef = useRef(null);
+
+  useEffect(() => {
+    const baseR = 11;
+    const maxR = 14.3; // 11 * 1.3
+    const duration = 2000;
+    const startTime = performance.now();
+
+    const tick = (now) => {
+      const t = ((now - startTime) % duration) / duration;
+      // Sinusoidal ease: 0→1→0
+      const ease = 0.5 - 0.5 * Math.cos(t * 2 * Math.PI);
+      const r = baseR + (maxR - baseR) * ease;
+      const opacity = 0.3 - 0.2 * ease;
+      if (ringRef.current) {
+        ringRef.current.setAttribute("r", r);
+        ringRef.current.setAttribute("opacity", opacity);
+      }
+      animRef.current = requestAnimationFrame(tick);
+    };
+
+    animRef.current = requestAnimationFrame(tick);
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
+  }, []);
+
+  return (
+    <circle ref={ringRef} cx={cx} cy={cy} r={11} fill="none" stroke="#00D4FF" strokeWidth={1} opacity={0.3} />
+  );
+}
+
 function StationNodes({ signals, trainsAtStation, onHover }) {
   const sigMap = useMemo(() => {
     const m = {}; if (signals) signals.forEach(s => m[s.station_id] = s); return m;
@@ -56,20 +89,25 @@ function StationNodes({ signals, trainsAtStation, onHover }) {
           <title>{st.name} · {sig ? getSignalLabel(sig.color) : "NO DATA"}{sig?.last_decision ? ` · ${sig.last_decision}` : ""}</title>
         </circle>
         <circle cx={st.x} cy={FAST_LINE_Y} r={has ? 7 : 5} fill={has ? "#00D4FF" : "#1A2540"} stroke={has ? "#00D4FF" : "#2A3560"} strokeWidth={1} className="transition-all duration-300" />
-        {has && <motion.circle cx={st.x} cy={FAST_LINE_Y} r={11} fill="none" stroke="#00D4FF" strokeWidth={1} opacity={0.3} animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.1, 0.3] }} transition={{ duration: 2, repeat: Infinity }} />}
+        {has && <StationPulseRing cx={st.x} cy={FAST_LINE_Y} />}
         <circle cx={st.x} cy={SLOW_LINE_Y} r={has ? 7 : 5} fill={has ? "#00D4FF" : "#1A2540"} stroke={has ? "#00D4FF" : "#2A3560"} strokeWidth={1} className="transition-all duration-300" />
       </g>);
     })}
   </g>);
 }
 
+/**
+ * TrainMarker — positions trains via SVG `transform` attribute directly,
+ * animated with Framer Motion useSpring + ref for cross-browser SVG compat.
+ * CSS transforms on SVG <g> elements are ignored in Safari / Firefox.
+ */
 function TrainMarker({ train }) {
   const cur = STATION_MAP[train.current_station];
   const nxt = STATION_MAP[train.next_station];
   if (!cur) return null;
   const nxtX = nxt ? nxt.x : cur.x;
-  const x = cur.x + (nxtX - cur.x) * (train.segment_pct ?? 0);
-  const y = train.line_type === "fast" ? FAST_LINE_Y : SLOW_LINE_Y;
+  const targetX = cur.x + (nxtX - cur.x) * (train.segment_pct ?? 0);
+  const targetY = train.line_type === "fast" ? FAST_LINE_Y : SLOW_LINE_Y;
   const isCrit = train.delay_mins > 15;
   const isDel = train.delay_mins > 5;
   const fill = isCrit ? "#FF4444" : isDel ? "#FFB800"
@@ -77,23 +115,76 @@ function TrainMarker({ train }) {
   const isExp = train.is_express || train.line_type === "fast";
   const pd = isCrit ? 0.8 : isDel ? 1.5 : 0;
 
+  // --- SVG-native position animation via spring + direct attribute writes ---
+  const groupRef = useRef(null);
+  const mvX = useMotionValue(targetX);
+  const mvY = useMotionValue(targetY);
+  const springX = useSpring(mvX, { stiffness: 120, damping: 28 });
+  const springY = useSpring(mvY, { stiffness: 120, damping: 28 });
+
+  // Push new targets into motion values when they change
+  useEffect(() => { mvX.set(targetX); }, [targetX]);
+  useEffect(() => { mvY.set(targetY); }, [targetY]);
+
+  // Subscribe to spring updates and write directly to the SVG transform attribute
+  useEffect(() => {
+    const updateTransform = () => {
+      if (groupRef.current) {
+        groupRef.current.setAttribute(
+          "transform",
+          `translate(${springX.get()}, ${springY.get()})`
+        );
+      }
+    };
+    const unsubX = springX.on("change", updateTransform);
+    const unsubY = springY.on("change", updateTransform);
+    // Set initial position immediately
+    updateTransform();
+    return () => { unsubX(); unsubY(); };
+  }, [springX, springY]);
+
+  // --- SVG-native scale pulse for delayed trains ---
+  const pulseRef = useRef(null);
+  const pulseAnimRef = useRef(null);
+
+  useEffect(() => {
+    if (pd <= 0) {
+      // Reset to identity scale if not delayed
+      if (pulseRef.current) {
+        pulseRef.current.setAttribute("transform", "scale(1)");
+      }
+      return;
+    }
+
+    const durationMs = pd * 1000;
+    const startTime = performance.now();
+
+    const tick = (now) => {
+      const t = ((now - startTime) % durationMs) / durationMs;
+      const ease = 0.5 - 0.5 * Math.cos(t * 2 * Math.PI);
+      const scale = 1 + 0.2 * ease; // 1 → 1.2 → 1
+      if (pulseRef.current) {
+        pulseRef.current.setAttribute("transform", `scale(${scale})`);
+      }
+      pulseAnimRef.current = requestAnimationFrame(tick);
+    };
+
+    pulseAnimRef.current = requestAnimationFrame(tick);
+    return () => { if (pulseAnimRef.current) cancelAnimationFrame(pulseAnimRef.current); };
+  }, [pd]);
+
   return (
     <g
+      ref={groupRef}
       data-train-id={train.id}
-      transform={`translate(${x}, ${y})`}
-      style={{ transition: "transform 0.5s linear" }}
+      transform={`translate(${targetX}, ${targetY})`}
     >
-      <motion.g
-        animate={pd > 0 ? { scale: [1, 1.2, 1] } : { scale: 1 }}
-        transition={pd > 0
-          ? { duration: pd, repeat: Infinity, ease: "easeInOut" }
-          : {}}
-      >
+      <g ref={pulseRef}>
         {isExp
           ? <polygon points="-5,-5 5,0 -5,5" fill={fill} />
           : <circle r={5} fill={fill} />
         }
-      </motion.g>
+      </g>
       <title>
         {train.id} · {train.line_type}
         {train.delay_mins > 0 ? ` · +${train.delay_mins.toFixed(1)}m` : ""}
