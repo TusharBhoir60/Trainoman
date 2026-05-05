@@ -16,14 +16,14 @@ class RailwayNetwork:
             print(f"Error loading config: {e}")
             return
             
-        for station in config.get("stations", []):
+        for station in config.get("nodes", config.get("stations", [])):
             self.G.add_node(station["id"], name=station["name"], platforms=station.get("platforms"))
             self._stations_order.append(station["id"])
             
         for edge in config.get("edges", []):
             u = edge["source"]
             v = edge["target"]
-            line_type = edge["line"]
+            line_type = edge.get("line_type", edge.get("line", "slow")).lower()
             key = 0 if line_type == "slow" else 1
             max_speed = edge.get("max_speed", 80 if line_type == "fast" else 60)
             dist_km = edge.get("dist_km", 1.0)
