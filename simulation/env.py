@@ -77,7 +77,7 @@ class RailwayEnv(gym.Env):
 
     def _get_info(self) -> dict:
         # info must include "action_masks" flattened
-        mask = self.simulator.safety.get_action_mask(self.simulator.trains, self.simulator.network)
+        mask = self.simulator.safety.get_action_mask(self.simulator.trains, self.simulator.network, self.simulator.tick_count)
         return {"action_masks": mask.flatten()}
 
     def render(self):
