@@ -2,7 +2,8 @@ import os
 import sys
 
 # Add the project root to the python path so it can find "simulation"
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
 
 from stable_baselines3.common.callbacks import CheckpointCallback
 from sb3_contrib import MaskablePPO
@@ -15,8 +16,11 @@ def main():
     os.makedirs("./models/", exist_ok=True)
     os.makedirs("./tensorboard_logs/", exist_ok=True)
 
+    timetable_path = os.path.join(BASE_DIR, "data", "timetable.csv")
+    network_path = os.path.join(BASE_DIR, "data", "network_config.json")
+
     # Initialize the Railway Environment
-    env = RailwayEnv()
+    env = RailwayEnv(network_config=network_path, timetable_path=timetable_path)
 
     # Set up a checkpoint callback to save the model every 10,000 steps
     checkpoint_callback = CheckpointCallback(

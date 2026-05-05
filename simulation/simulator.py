@@ -26,17 +26,38 @@ class Simulator:
         try:
             with open(self.timetable_path, 'r') as f:
                 reader = csv.DictReader(f)
+                trains_dict = {}
                 for row in reader:
-                    train = Train(
-                        id=row.get("id", f"T{len(self.trains)}"),
-                        current_station=row.get("start_station", ""),
-                        next_station=row.get("next_station", ""),
-                        is_express=row.get("is_express", "False") == "True",
-                        scheduled_dep=row.get("scheduled_dep", ""),
+                    tid = row.get("train_id")
+                    station = row.get("station")
+                    if not tid or not station:
+                        continue
+                    
+                    if tid not in trains_dict:
+                        trains_dict[tid] = {
+                            "id": tid,
+                            "current_station": station,
+                            "is_express": row.get("is_express", "False") == "True",
+                            "scheduled_dep": row.get("sched_dep", ""),
+                            "line_type": row.get("line_type", "slow"),
+                            "route": []
+                        }
+                    # Also append station to route
+                    trains_dict[tid]["route"].append(station)
+
+                for tid, tdata in trains_dict.items():
+                    route = tdata["route"]
+                    next_st = route[1] if len(route) > 1 else ""
+                    self.trains.append(Train(
+                        id=tid,
+                        current_station=tdata["current_station"],
+                        next_station=next_st,
+                        is_express=tdata["is_express"],
+                        scheduled_dep=tdata["scheduled_dep"],
                         is_at_platform=True,
-                        line_type="fast" if row.get("is_express", "False") == "True" else "slow"
-                    )
-                    self.trains.append(train)
+                        line_type=tdata["line_type"],
+                        route=route
+                    ))
         except Exception as e:
             print(f"Failed to load timetable: {e}")
 
@@ -72,6 +93,9 @@ class Simulator:
 
         # 2-5 Process each train
         for train in self.trains:
+            if train.next_station == "":
+                continue
+
             if train.is_at_platform:
                 if train.dwell_ticks_remaining > 0:
                     train.dwell_ticks_remaining -= 1
@@ -118,9 +142,9 @@ class Simulator:
                         train.current_station = train.next_station
                         
                         # Find next station (simplified linear advance for now)
-                        edges = self.network.get_edges_from(train.current_station)
-                        if edges:
-                            train.next_station = edges[0][1] # just take the first connection as 'next'
+                        current_idx = train.route.index(train.current_station) if train.current_station in train.route else -1
+                        if current_idx >= 0 and current_idx + 1 < len(train.route):
+                            train.next_station = train.route[current_idx + 1]
                         else:
                             train.next_station = "" # Terminated
                             self.metrics["completed_trips"] += 1

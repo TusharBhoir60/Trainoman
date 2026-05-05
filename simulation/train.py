@@ -17,6 +17,11 @@ class Train:
     is_at_platform: bool = False
     scheduled_dep: str = ""
     actual_dep: str = ""
+    route: list[str] = None
+
+    def __post_init__(self):
+        if self.route is None:
+            self.route = []
 
     def to_obs_vector(self, network: RailwayNetwork) -> np.ndarray:
         """
