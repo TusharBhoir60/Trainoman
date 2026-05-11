@@ -10,8 +10,7 @@
 ```
 
 # AI-Integrated Traffic Management System
-### Mumbai Suburban Railway — Western Line Digital Twin
-
+### Mumbai Suburban Railway — Western Line Digital T
 **Reinforcement Learning agent that replaces manual Sectional Controller decisions**  
 **with real-time AI signal optimization across a 12-station digital twin simulation**
 
