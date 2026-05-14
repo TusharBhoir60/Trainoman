@@ -36,6 +36,12 @@
 
 ---
 
+## Clarification Note
+
+For repository-specific naming and structure notes (including current folder/file differences from legacy examples), see `PROJECT_CLARIFICATIONS.md`.
+
+---
+
 ## What This Is
 
 Indian Railways operates the Western Line with **manual Sectional Controllers** making real-time decisions about which train gets the green signal, when to hold, and how to route around delays. These decisions rely on human intuition, are inconsistent under pressure, and cause cascading delays that compound across the network.
